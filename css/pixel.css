@@ -294,6 +294,43 @@ a:hover {
     letter-spacing: 1px;
 }
 
+/* ===== Quotes ===== */
+.quote-box {
+    max-width: 640px;
+    margin: 32px auto 0;
+    border: 2px solid var(--border-color);
+    background: #050505;
+    padding: 24px 20px 16px;
+    min-height: 130px;
+    text-align: left;
+    box-shadow: 0 0 20px var(--border-color);
+}
+
+.quote-line {
+    font-size: 11px;
+    line-height: 2.2;
+    min-height: 66px;
+}
+
+.quote-prompt {
+    color: var(--neon-cyan);
+}
+
+.quote-text {
+    color: var(--neon-green);
+}
+
+.quote-cursor {
+    color: var(--neon-green);
+    animation: blink 1s steps(1) infinite;
+}
+
+.quote-author {
+    color: var(--text-dim);
+    font-size: 9px;
+    text-align: right;
+}
+
 /* ===== About ===== */
 .about-content {
     max-width: 600px;
