@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mini Judge - J. Schwarz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <link rel="stylesheet" href="css/pixel.css">
+    <link rel="stylesheet" href="css/judge.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a class="nav-brand" href="index.html">&gt; J. Schwarz_</a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html#portfolio">PORTFOLIO</a></li>
+                <li><a href="index.html#game">GAME</a></li>
+                <li><a href="index.html#quotes">QUOTES</a></li>
+                <li><a href="index.html#links">LINKS</a></li>
+                <li><a href="judge.html">JUDGE</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="judge-section">
+        <div class="container">
+            <h2 class="section-title">MINI JUDGE</h2>
+            <div class="pixel-divider dark" style="justify-content:center;">
+                <span>*</span><span>*</span><span>*</span>
+            </div>
+            <p class="judge-hint">gcc 13.2 via wandbox api &middot; oj-style compare</p>
+
+            <div class="judge-layout">
+                <!-- Left: code editor -->
+                <div class="panel">
+                    <div class="panel-bar">
+                        <span>main.src</span>
+                        <select class="lang-select" id="langSelect">
+                            <option value="c++" selected>C++ (g++)</option>
+                            <option value="c">C (gcc)</option>
+                        </select>
+                    </div>
+                    <textarea id="codeInput"></textarea>
+                </div>
+
+                <!-- Right: test cases -->
+                <div class="panel">
+                    <div class="panel-bar">
+                        <span>test cases</span>
+                        <button class="mini-btn" id="addTestBtn">+ ADD</button>
+                    </div>
+                    <div class="panel-body tests-body" id="testsBody"></div>
+                </div>
+            </div>
+
+            <div class="run-row">
+                <button class="pixel-btn" id="runBtn">&#9654; RUN ALL</button>
+            </div>
+
+            <!-- Results terminal -->
+            <div class="terminal result-terminal" id="resultTerminal">
+                <div class="terminal-bar">
+                    <span class="t-dot"></span><span class="t-dot"></span><span class="t-dot"></span>
+                    <span class="t-title">judge@wandbox:~</span>
+                </div>
+                <div class="terminal-body result-body" id="resultBody">
+                    <div class="log-line dim">&gt; waiting for submission...</div>
+                </div>
+            </div>
+
+            <!-- Per-test detail cards -->
+            <div class="detail-list" id="detailList"></div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 J. Schwarz. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+    <script src="js/judge.js"></script>
+</body>
+</html>

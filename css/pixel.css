@@ -294,6 +294,21 @@ a:hover {
     letter-spacing: 1px;
 }
 
+a.portfolio-card {
+    display: block;
+    color: inherit;
+}
+
+a.portfolio-card:hover {
+    color: inherit;
+    text-shadow: none;
+}
+
+.card-tag.live {
+    color: var(--neon-green);
+    border-color: var(--neon-green);
+}
+
 /* ===== Quotes ===== */
 .quote-box {
     max-width: 640px;

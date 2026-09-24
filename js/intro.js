@@ -43,8 +43,15 @@
         const vcx = window.innerWidth / 2;
         const vcy = window.innerHeight / 2;
 
+        // Responsive start scales: never overflow the screen / terminal body
+        const bodyW = tRect.width - 24;
+        const termStartScale = Math.min(TERM_START_SCALE, (window.innerWidth * 0.92) / tRect.width);
+        const titleStartScale = Math.min(TITLE_START_SCALE, (bodyW * 0.95) / titleRect.width);
+        const subStartScale = Math.min(SUB_START_SCALE, (bodyW * 0.95) / subRect.width);
+
         m = {
             vcx, vcy,
+            termStartScale, titleStartScale, subStartScale,
             term: { cx: tRect.left + tRect.width / 2, cy: tRect.top + tRect.height / 2 },
             title: { cx: titleRect.left + titleRect.width / 2, cy: titleRect.top + titleRect.height / 2 },
             sub: { cx: subRect.left + subRect.width / 2, cy: subRect.top + subRect.height / 2 }
@@ -153,7 +160,7 @@
         hint.classList.toggle('visible', typingDone && p < 0.1);
 
         // Terminal: big & centered -> shrinks back to its avatar spot above the title
-        const tScale = lerp(TERM_START_SCALE, 1, p);
+        const tScale = lerp(m.termStartScale, 1, p);
         const tTx = lerp(m.vcx - m.term.cx, 0, p);
         const tTy = lerp(m.vcy - m.term.cy, 0, p);
         terminal.style.transform =
@@ -164,18 +171,18 @@
         bootLines.style.transform = 'translateY(' + (-bootOut * 150) + '%)';
 
         // Title: small line inside the terminal -> grows to hero heading
-        const titleScale = lerp(TITLE_START_SCALE, 1, p);
+        const titleScale = lerp(m.titleStartScale, 1, p);
         const titleStartX = m.vcx;
-        const titleStartY = m.vcy + TITLE_OFFSET_Y * TERM_START_SCALE;
+        const titleStartY = m.vcy + TITLE_OFFSET_Y * m.termStartScale;
         const titleTx = lerp(titleStartX - m.title.cx, 0, p);
         const titleTy = lerp(titleStartY - m.title.cy, 0, p);
         title.style.transform =
             'translate(' + titleTx + 'px,' + titleTy + 'px) scale(' + titleScale + ')';
 
         // Subtitle: same, just below the title line
-        const subScale = lerp(SUB_START_SCALE, 1, p);
+        const subScale = lerp(m.subStartScale, 1, p);
         const subStartX = m.vcx;
-        const subStartY = m.vcy + SUB_OFFSET_Y * TERM_START_SCALE;
+        const subStartY = m.vcy + SUB_OFFSET_Y * m.termStartScale;
         const subTx = lerp(subStartX - m.sub.cx, 0, p);
         const subTy = lerp(subStartY - m.sub.cy, 0, p);
         subtitle.style.transform =

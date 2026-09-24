@@ -15,6 +15,7 @@
     const SHIP_GRAVITY = 0.34;
     const SHIP_MAX_VY = 6.5;
     const CEILING_Y = 16;
+    const STEP = 1000 / 60; // fixed physics step, refresh-rate independent
 
     let groundY, player, obstacles, particles;
     let speed, score, bestScore = 0, attempts = 0;
@@ -27,12 +28,14 @@
     let trail = [];
     let frame = 0;
     let attemptTextTimer = 0;
+    let lastTime = 0;
+    let accumulator = 0;
 
     function resize() {
-        const wrapper = canvas.parentElement;
-        const w = Math.min(640, wrapper.clientWidth - 4);
-        canvas.width = w;
-        canvas.height = Math.round(w * 0.5625);
+        // Fixed internal resolution: identical physics on every device,
+        // CSS scales the canvas to fit the container visually
+        canvas.width = 640;
+        canvas.height = 360;
         groundY = canvas.height * GROUND_Y_RATIO;
     }
 
@@ -57,6 +60,8 @@
         mode = 'cube';
         frame = 0;
         attemptTextTimer = 80;
+        lastTime = 0;
+        accumulator = 0;
         dead = false;
     }
 
@@ -79,17 +84,17 @@
     function spawnObstacle() {
         let type;
         if (mode === 'ship') {
-            const types = ['block', 'block', 'sawTop', 'sawBottom', 'block'];
+            const types = ['block', 'sawTop', 'sawBottom', 'corridor', 'corridor'];
             type = types[Math.floor(Math.random() * types.length)];
         } else if (spawnCount < 2) {
             type = 'spike';
         } else {
-            const types = ['spike', 'spike', 'double', 'tall', 'saw', 'sawFloat', 'pad'];
+            const types = ['spike', 'spike', 'double', 'tall', 'saw', 'sawFloat', 'bridge', 'bridge', 'padtower', 'trap'];
             type = types[Math.floor(Math.random() * types.length)];
         }
         spawnCount++;
 
-        let w, h, y;
+        let w, h, y, gapH = 0;
         switch (type) {
             case 'spike':
                 w = 28; h = 40; y = groundY - h;
@@ -104,7 +109,7 @@
                 w = 32; h = 32; y = groundY - 16;
                 break;
             case 'sawFloat':
-                w = 32; h = 32; y = groundY - 60 - Math.random() * 40;
+                w = 32; h = 32; y = groundY - 90 - Math.random() * 35;
                 break;
             case 'sawTop':
                 w = 32; h = 32; y = CEILING_Y + 6;
@@ -113,24 +118,85 @@
                 w = 32; h = 32; y = groundY - 16;
                 break;
             case 'pad':
+            case 'padtower':
+            case 'trap':
                 w = 24; h = 12; y = groundY - h;
+                break;
+            case 'bridge':
+                w = 260; h = 12; y = groundY - 58;
                 break;
             case 'block':
                 w = 34; h = 34 + Math.random() * 40;
                 y = CEILING_Y + 30 + Math.random() * (groundY - CEILING_Y - 130);
                 break;
+            case 'corridor': {
+                const avail = groundY - CEILING_Y;
+                gapH = Math.min(100 + Math.random() * 20, avail * 0.45);
+                const margin = Math.max(20, avail * 0.15);
+                const gapTop = CEILING_Y + margin + Math.random() * Math.max(10, avail - gapH - margin * 2);
+                w = 30; h = gapTop; y = 0;
+                break;
+            }
         }
 
         obstacles.push({ x: canvas.width + 20, y, w, h, type, angle: 0 });
 
+        // Bridge: unjumpable spike strip underneath, platform is the only way across
+        if (type === 'bridge') {
+            obstacles[obstacles.length - 1].type = 'platform'; // deck must be landable
+            obstacles.push({
+                x: canvas.width + 20 + 40, y: groundY - 40,
+                w: 200, h: 40, type: 'spikestrip', angle: 0
+            });
+        }
+
+        // Trap: high platform looks optional (no spikes below),
+        // but the tall wall after it is only clearable from the platform
+        if (type === 'trap') {
+            obstacles[obstacles.length - 1].type = 'pad'; // must bounce and render
+            obstacles.push({
+                x: canvas.width + 20 + 50, y: groundY - 100,
+                w: 220, h: 12, type: 'platform', angle: 0
+            });
+            obstacles.push({
+                x: canvas.width + 20 + 330, y: groundY - 80,
+                w: 30, h: 80, type: 'wall', angle: 0
+            });
+        }
+
+        // Pad tower: high platform only reachable by pad bounce, spikes punish staying low
+        if (type === 'padtower') {
+            obstacles[obstacles.length - 1].type = 'pad'; // must bounce and render
+            obstacles.push({
+                x: canvas.width + 20 + 50, y: groundY - 100,
+                w: 220, h: 12, type: 'platform', angle: 0
+            });
+            obstacles.push({
+                x: canvas.width + 20 + 70, y: groundY - 40,
+                w: 190, h: 40, type: 'spikestrip', angle: 0
+            });
+        }
+
+        // Corridor: matching bottom block, fly through the gap
+        if (type === 'corridor') {
+            obstacles[obstacles.length - 1].type = 'blockTop';
+            const bottomY = y + h + gapH;
+            obstacles.push({
+                x: canvas.width + 20, y: bottomY, w,
+                h: groundY - bottomY, type: 'blockBottom', angle: 0
+            });
+        }
+
         if (mode === 'ship') {
-            spawnInterval = Math.max(40, 65 - spawnCount);
+            spawnInterval = Math.max(34, 60 - spawnCount);
         } else if (spawnCount <= 2) {
             spawnInterval = 90;
         } else {
             // Min 37 frames: jump airtime is ~27 frames, guarantee landable gaps
             spawnInterval = Math.max(37, 50 - (spawnCount - 2) * 2);
-            if (type === 'pad') spawnInterval += 20;
+            if (type === 'bridge') spawnInterval += 40;
+            if (type === 'padtower') spawnInterval += 50;
+            if (type === 'trap') spawnInterval += 55;
         }
     }
 
@@ -200,7 +266,6 @@
 
         ctx.strokeStyle = '#00ff4115';
         ctx.lineWidth = 1;
-        groundOffset = (groundOffset + speed) % 20;
         for (let x = -groundOffset; x < canvas.width; x += 20) {
             ctx.beginPath();
             ctx.moveTo(x, groundY);
@@ -218,8 +283,6 @@
     function drawPlayer() {
         if (dead) return;
 
-        trail.push({ x: player.x, y: player.y });
-        if (trail.length > 8) trail.shift();
         trail.forEach((t, i) => {
             ctx.globalAlpha = (i / trail.length) * 0.25;
             ctx.fillStyle = mode === 'ship' ? '#00d4ff' : '#00ff41';
@@ -263,7 +326,6 @@
     function drawSaw(obs) {
         ctx.save();
         ctx.translate(obs.x + obs.w / 2, obs.y + obs.h / 2);
-        obs.angle += 0.15;
         ctx.rotate(obs.angle);
         const r = obs.w / 2;
         ctx.fillStyle = '#ff4444';
@@ -289,8 +351,8 @@
     function drawObstacle(obs) {
         ctx.fillStyle = '#ff4444';
 
-        if (obs.type === 'spike' || obs.type === 'double') {
-            const spikes = obs.type === 'double' ? 2 : 1;
+        if (obs.type === 'spike' || obs.type === 'double' || obs.type === 'spikestrip') {
+            const spikes = obs.type === 'double' ? 2 : obs.type === 'spikestrip' ? Math.round(obs.w / 20) : 1;
             const spikeW = obs.w / spikes;
             for (let i = 0; i < spikes; i++) {
                 const sx = obs.x + i * spikeW;
@@ -301,18 +363,25 @@
                 ctx.closePath();
                 ctx.fill();
             }
-        } else if (obs.type === 'tall') {
+        } else if (obs.type === 'tall' || obs.type === 'wall') {
             ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
             ctx.fillStyle = '#0a0a0a';
             for (let y = obs.y + 4; y < obs.y + obs.h; y += 10) {
                 ctx.fillRect(obs.x + 5, y, obs.w - 10, 5);
             }
-        } else if (obs.type === 'block') {
+        } else if (obs.type === 'block' || obs.type === 'blockTop' || obs.type === 'blockBottom') {
             ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(obs.x + 4, obs.y + 4, obs.w - 8, obs.h - 8);
             ctx.fillStyle = '#ff4444';
             ctx.fillRect(obs.x + 8, obs.y + 8, obs.w - 16, obs.h - 16);
+        } else if (obs.type === 'platform') {
+            ctx.fillStyle = '#00d4ff';
+            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(obs.x + 3, obs.y + 3, obs.w - 6, obs.h - 6);
+            ctx.fillStyle = '#00d4ff';
+            ctx.fillRect(obs.x + 6, obs.y + 5, obs.w - 12, 2);
         } else if (obs.type === 'saw' || obs.type === 'sawFloat' ||
                    obs.type === 'sawTop' || obs.type === 'sawBottom') {
             drawSaw(obs);
@@ -362,7 +431,6 @@
         ctx.textAlign = 'center';
         ctx.fillText('ATTEMPT ' + attempts, canvas.width / 2, canvas.height * 0.3);
         ctx.globalAlpha = 1;
-        attemptTextTimer--;
     }
 
     function dist(x1, y1, x2, y2) {
@@ -377,7 +445,8 @@
         const pcy = player.y + PLAYER_SIZE / 2;
 
         for (const obs of obstacles) {
-            if (obs.type === 'pad' || obs.type === 'portalShip' || obs.type === 'portalCube') continue;
+            if (obs.type === 'pad' || obs.type === 'platform' ||
+                obs.type === 'portalShip' || obs.type === 'portalCube') continue;
 
             if (obs.type === 'saw' || obs.type === 'sawFloat' ||
                 obs.type === 'sawTop' || obs.type === 'sawBottom') {
@@ -388,7 +457,8 @@
             }
 
             let tx, ty, tw, th;
-            if (obs.type === 'tall' || obs.type === 'block') {
+            if (obs.type === 'tall' || obs.type === 'wall' || obs.type === 'block' ||
+                obs.type === 'blockTop' || obs.type === 'blockBottom') {
                 tx = obs.x + 4; ty = obs.y + 4; tw = obs.w - 8; th = obs.h - 8;
             } else {
                 tx = obs.x + 8; ty = obs.y + 14; tw = obs.w - 16; th = obs.h - 14;
@@ -401,13 +471,10 @@
         return false;
     }
 
-    function update() {
-        if (!running) return;
+    // ===== Fixed-step physics (60 Hz on any display) =====
+    function tick() {
         frame++;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawBackground();
-        drawGround();
+        groundOffset = (groundOffset + speed) % 20;
 
         // Physics
         if (mode === 'ship') {
@@ -423,6 +490,7 @@
                 player.vy = 0;
             }
         } else {
+            const prevBottom = player.y + PLAYER_SIZE;
             player.vy += GRAVITY;
             player.y += player.vy;
             player.onGround = false;
@@ -431,7 +499,25 @@
                 player.vy = 0;
                 player.onGround = true;
             }
+            // Land on platforms: strict crossing test — any frame whose fall
+            // path crosses the platform top lands, no phase can slip through
+            if (!player.onGround && player.vy >= 0) {
+                for (const obs of obstacles) {
+                    if (obs.type !== 'platform') continue;
+                    const overX = player.x + PLAYER_SIZE - 6 > obs.x && player.x + 6 < obs.x + obs.w;
+                    if (overX && prevBottom <= obs.y && player.y + PLAYER_SIZE >= obs.y) {
+                        player.y = obs.y - PLAYER_SIZE;
+                        player.vy = 0;
+                        player.onGround = true;
+                        break;
+                    }
+                }
+            }
         }
+
+        // Trail
+        trail.push({ x: player.x, y: player.y });
+        if (trail.length > 8) trail.shift();
 
         // Portal spawns only when the right edge is clear, so its approach is empty
         const portalOnScreen = obstacles.some(o => o.type === 'portalShip' || o.type === 'portalCube');
@@ -457,6 +543,11 @@
             const obs = obstacles[i];
             obs.x -= speed;
 
+            if (obs.type === 'saw' || obs.type === 'sawFloat' ||
+                obs.type === 'sawTop' || obs.type === 'sawBottom') {
+                obs.angle += 0.15;
+            }
+
             if (obs.x + obs.w < 0) {
                 obstacles.splice(i, 1);
                 score++;
@@ -464,10 +555,10 @@
                 continue;
             }
 
-            // Jump pad bounce
+            // Jump pad bounce (triggers on any contact, even mid-air)
             if (obs.type === 'pad' && mode === 'cube') {
                 const overX = player.x + PLAYER_SIZE - 6 > obs.x && player.x + 6 < obs.x + obs.w;
-                if (overX && player.y + PLAYER_SIZE >= obs.y && player.vy >= 0) {
+                if (overX && player.y + PLAYER_SIZE >= obs.y) {
                     player.vy = PAD_FORCE;
                     player.onGround = false;
                 }
@@ -481,23 +572,45 @@
                 player.vy = 0;
                 spawnTimer = -40;
             }
-
-            drawObstacle(obs);
         }
 
-        // Constant speed
-        speed = BASE_SPEED;
-
-        drawPlayer();
-        drawParticles();
-        drawAttemptText();
+        if (attemptTextTimer > 0) attemptTextTimer--;
 
         if (checkCollision()) {
             die();
-            return;
         }
+    }
 
-        animFrame = requestAnimationFrame(update);
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
+        drawGround();
+        obstacles.forEach(drawObstacle);
+        drawPlayer();
+        drawParticles();
+        drawAttemptText();
+    }
+
+    function loop(time) {
+        if (!running) return;
+        if (!lastTime) lastTime = time;
+        accumulator += time - lastTime;
+        lastTime = time;
+
+        let steps = 0;
+        while (accumulator >= STEP && steps < 4) {
+            tick();
+            accumulator -= STEP;
+            steps++;
+            if (!running) {
+                accumulator = 0;
+                return; // died mid-frame; deathAnim takes over rendering
+            }
+        }
+        if (steps === 4) accumulator = 0; // avoid spiral after tab switch
+
+        draw();
+        animFrame = requestAnimationFrame(loop);
     }
 
     function die() {
@@ -512,6 +625,8 @@
         }
 
         function deathAnim() {
+            if (!dead) return; // restarted before animation finished
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBackground();
             drawGround();
@@ -553,7 +668,7 @@
         init();
         running = true;
         overlay.style.display = 'none';
-        update();
+        animFrame = requestAnimationFrame(loop);
     }
 
     document.addEventListener('keydown', (e) => {
